@@ -1215,7 +1215,7 @@ class LLMAnalysis:
             self.gpu_config.intra_node_min_message_latency,
         )
 
-    def get_latency_fwd_per_layer_shared_dp_comm(self) -> float:
+    def get_latency_fwd_per_layer_sharded_dp_comm(self) -> float:
         dp_size = self.parallelism_config.dp_size
         ep_size = self.parallelism_config.ep_size
 
@@ -1241,13 +1241,13 @@ class LLMAnalysis:
             (self.get_intra_node_bandwidth()
              if dp_size <= 8 else self.get_inter_node_bandwidth()) * 10**9)
 
-        latency_fwd_per_layer_shared_dp_comm = latency_allgather_params_mlp + latency_allgather_params_non_mlp
+        latency_fwd_per_layer_sharded_dp_comm = latency_allgather_params_mlp + latency_allgather_params_non_mlp
 
         logger.info(
             f'params_bytes_mlp: {_num_to_string(params_bytes_mlp)}B, params_bytes_non_mlp: {_num_to_string(params_bytes_non_mlp)}B, latency_allgather_params_mlp: {round(latency_allgather_params_mlp*1000, 3)} ms, latency_allgather_params_non_mlp: {round(latency_allgather_params_non_mlp*1000, 3)} ms'
         )
 
-        return latency_fwd_per_layer_shared_dp_comm
+        return latency_fwd_per_layer_sharded_dp_comm
 
     def get_latency_fwd_per_layer(
         self,
@@ -1303,32 +1303,32 @@ class LLMAnalysis:
             f"latency_fwd_per_tp_comm: {round(latency_fwd_per_tp_comm*1000, 3)} ms"
         )
 
-        latency_fwd_per_layer_shared_dp_comm = self.get_latency_fwd_per_layer_shared_dp_comm(
+        latency_fwd_per_layer_sharded_dp_comm = self.get_latency_fwd_per_layer_sharded_dp_comm(
         )
 
         latency_per_layer = latency_fwd_per_layer_attn + latency_fwd_per_layer_mlp + 2 * latency_fwd_per_layernorm + 2 * latency_fwd_per_tp_comm
 
-        if ds_zero > DSZeRO.STAGE_1 and latency_fwd_per_layer_shared_dp_comm > latency_per_layer:
+        if ds_zero > DSZeRO.STAGE_2 and latency_fwd_per_layer_sharded_dp_comm > latency_per_layer:
             logger.warning(
-                f'allgather communication time to unshard model weight {round(latency_fwd_per_layer_shared_dp_comm*1000, 3)} ms is larger than compute {round(latency_per_layer*1000, 3)} ms, thus cannot be fully overlapped.'
+                f'allgather communication time to unshard model weight {round(latency_fwd_per_layer_sharded_dp_comm*1000, 3)} ms is larger than compute {round(latency_per_layer*1000, 3)} ms, thus cannot be fully overlapped.'
             )
         latency_per_layer = max(latency_per_layer,
-                                latency_fwd_per_layer_shared_dp_comm)
+                                latency_fwd_per_layer_sharded_dp_comm)
 
         logger.info(
-            f"latency_per_layer: {round(latency_per_layer*1000, 3)} ms (max(attn + mlp + 2*layernorm + 2*tp_comm, shared_dp_comm):"
+            f"latency_per_layer: {round(latency_per_layer*1000, 3)} ms (max(attn + mlp + 2*layernorm + 2*tp_comm, sharded_dp_comm):"
             f" max({round(latency_fwd_per_layer_attn*1000, 3)} +"
             f" {round(latency_fwd_per_layer_mlp*1000, 3)} +"
             f" {round(2*latency_fwd_per_layernorm*1000, 3)} +"
             f" {round(2*latency_fwd_per_tp_comm*1000, 3)},"
-            f" {round(latency_fwd_per_layer_shared_dp_comm*1000, 3)}))")
+            f" {round(latency_fwd_per_layer_sharded_dp_comm*1000, 3)}))")
 
         breakdown_per_layer = {
             "attn": latency_fwd_per_layer_attn,
             "mlp": latency_fwd_per_layer_mlp,
             "layernorm": 2 * latency_fwd_per_layernorm,
             "tp_comm": 2 * latency_fwd_per_tp_comm,
-            "sharded_dp_comm": latency_fwd_per_layer_shared_dp_comm
+            "sharded_dp_comm": latency_fwd_per_layer_sharded_dp_comm
         }
 
         return latency_per_layer, breakdown_per_layer
