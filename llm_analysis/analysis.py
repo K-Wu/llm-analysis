@@ -499,10 +499,12 @@ class LLMAnalysis:
     def get_weight_memory_per_layer_with_breakdown(
         self, *args, **kwargs
     ) -> tuple:
-        results = self.get_weight_memory_per_layer(*args, **kwargs, return_breakdown=True)
+        results = self.get_weight_memory_per_layer(
+            *args, **kwargs, return_breakdown=True
+        )
         assert isinstance(results, tuple)
         return results
-    
+
     def get_weight_memory_last_layernorm(self, ds_zero: DSZeRO = DSZeRO.NONE):
         weight_memory_last_layernorm = (
             self.get_num_params_last_layernorm()
@@ -1166,12 +1168,15 @@ class LLMAnalysis:
         return activation_memory_per_layer
 
     def get_activation_memory_per_layer_with_breakdown(
-        self, *args, **kwargs) -> tuple:
+        self, *args, **kwargs
+    ) -> tuple:
         """Helper function to facilitate type hinting of the return values"""
-        results =  self.get_activation_memory_per_layer(*args, **kwargs, return_breakdown=True)
+        results = self.get_activation_memory_per_layer(
+            *args, **kwargs, return_breakdown=True
+        )
         assert isinstance(results, tuple)
         return results
-    
+
     def get_memory_kv_cache_per_layer(
         self,
         batch_size: int,
@@ -1395,7 +1400,10 @@ class LLMAnalysis:
         )
 
         activation_memory = self.get_activation_memory_per_layer_attn(
-            batch_size, seq_len, is_inference, activation_recomputation = activation_recomputation
+            batch_size,
+            seq_len,
+            is_inference,
+            activation_recomputation=activation_recomputation,
         )
         activation_memory_latency = activation_memory / (
             self.get_gpu_hbm_bandwidth() * 10**9
@@ -2032,9 +2040,7 @@ class LLMAnalysis:
             weight_memory_layernorm_per_gpu,
         ) = [
             x * num_layers_per_gpu
-            for x in self.get_weight_memory_per_layer_with_breakdown(
-                ds_zero
-            )
+            for x in self.get_weight_memory_per_layer_with_breakdown(ds_zero)
         ]
         weight_memory_last_layernorm = self.get_weight_memory_last_layernorm(
             ds_zero
@@ -2574,9 +2580,7 @@ class LLMAnalysis:
             weight_memory_layernorm_per_gpu,
         ) = [
             x * num_layers_per_gpu
-            for x in self.get_weight_memory_per_layer_with_breakdown(
-                ds_zero
-            )
+            for x in self.get_weight_memory_per_layer_with_breakdown(ds_zero)
         ]
         weight_memory_last_layernorm = self.get_weight_memory_last_layernorm(
             ds_zero
@@ -2669,7 +2673,7 @@ class LLMAnalysis:
                 mlp_1linear_quant_bits=mlp_1linear_quant_bits,
                 mlp_gelu_input_quant_bits=mlp_gelu_input_quant_bits,
                 mlp_2linear_quant_bits=mlp_2linear_quant_bits,
-                mlp_recompute_gelu=mlp_recompute_gelu
+                mlp_recompute_gelu=mlp_recompute_gelu,
             )
         ]
         activation_memory_embedding_output_batch_size_1 = (
@@ -2689,25 +2693,41 @@ class LLMAnalysis:
             )
         )
 
-        activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu = 2 * max(
-            [
-                activation_memory_attn_batch_size_1,
-                mlp_activation_memory_batch_size_1,
-                layernorm_activation_memory_batch_size_1,
-                activation_memory_embedding_output_batch_size_1,
-                self.get_activation_memory_per_layernorm(
-                    1,
-                    seq_len,
-                    layernorm_dtype_bytes,
-                ),
-            ]
+        activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu = (
+            2
+            * max(
+                list(
+                    self.get_activation_memory_per_layer_with_breakdown(
+                        1,
+                        seq_len,
+                        is_inference=False,
+                        activation_recomputation=activation_recomputation,
+                        layernorm_dtype_bytes=layernorm_dtype_bytes,
+                        flash_attn=flash_attn,
+                        softmax_dropout=softmax_dropout,
+                        mlp_activation_quant_bits=mlp_activation_quant_bits,
+                        mlp_1linear_quant_bits=mlp_1linear_quant_bits,
+                        mlp_gelu_input_quant_bits=mlp_gelu_input_quant_bits,
+                        mlp_2linear_quant_bits=mlp_2linear_quant_bits,
+                        mlp_recompute_gelu=mlp_recompute_gelu,
+                    )
+                )
+                + [
+                    self.get_activation_memory_per_layernorm(
+                        1,
+                        seq_len,
+                        layernorm_dtype_bytes,
+                    ),
+                ]
+            )
         )
 
         max_batch_size_per_gpu = int(
             memory_left // activation_memory_batch_size_1
         )
         max_batch_size_per_gpu_with_offloading = int(
-            memory_left // activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu
+            memory_left
+            // activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu
         )
 
         if activation_reloading == ActivationReloading.DISABLED:
@@ -2716,7 +2736,10 @@ class LLMAnalysis:
                     f"memory_left {_num_to_string(memory_left)} < activation_memory_batch_size_1 {_num_to_string(activation_memory_batch_size_1)}"
                 )
         else:
-            if memory_left < activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu:
+            if (
+                memory_left
+                < activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu
+            ):
                 logger.warning(
                     f"memory_left {_num_to_string(memory_left)} < activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu {_num_to_string(activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu)}"
                 )
@@ -2728,11 +2751,13 @@ class LLMAnalysis:
             f"activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu: {_num_to_string(activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu)}B, max_batch_size_per_gpu_with_offloading: {max_batch_size_per_gpu_with_offloading}"
         )
 
-        if batch_size_per_gpu is None or gradient_accumulation_steps is None or global_batch_size is None:
+        if (
+            batch_size_per_gpu is None
+            or gradient_accumulation_steps is None
+            or global_batch_size is None
+        ):
             logger.info(
-                f"Configuring batch_size_per_gpu, gradient_accumulation_steps and global_batch_size according to ActivationReloading {ActivationReloading(
-                activation_reloading
-            ).name} because at least one of them is not set"
+                f"Configuring batch_size_per_gpu, gradient_accumulation_steps and global_batch_size according to ActivationReloading {ActivationReloading(activation_reloading).name} because at least one of them is not set"
             )
 
         (
@@ -2740,7 +2765,11 @@ class LLMAnalysis:
             gradient_accumulation_steps,
             global_batch_size,
         ) = self.config_batch_size_and_gradient_accumulation_steps(
-            max_batch_size_per_gpu,
+            (
+                max_batch_size_per_gpu
+                if activation_reloading == ActivationReloading.DISABLED
+                else max_batch_size_per_gpu_with_offloading
+            ),
             batch_size_per_gpu,
             gradient_accumulation_steps,
             global_batch_size,
@@ -2778,7 +2807,7 @@ class LLMAnalysis:
                     mlp_1linear_quant_bits=mlp_1linear_quant_bits,
                     mlp_gelu_input_quant_bits=mlp_gelu_input_quant_bits,
                     mlp_2linear_quant_bits=mlp_2linear_quant_bits,
-                    mlp_recompute_gelu=mlp_recompute_gelu
+                    mlp_recompute_gelu=mlp_recompute_gelu,
                 )
             ]
         activation_memory_embedding_output_per_gpu = (
@@ -2793,7 +2822,10 @@ class LLMAnalysis:
             layernorm_dtype_bytes,
         )
 
-        activation_memory_active_with_offloading_per_gpu = batch_size_per_gpu * activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu
+        activation_memory_active_with_offloading_per_gpu = (
+            batch_size_per_gpu
+            * activation_memory_max_on_gpu_batch_size_1_with_offloading_per_gpu
+        )
 
         logger.info(
             "activation_memory_per_gpu with micro batch size"
@@ -2823,7 +2855,6 @@ class LLMAnalysis:
                     f" {max_batch_size_per_gpu_with_offloading}"
                 )
             memory_left -= activation_memory_active_with_offloading_per_gpu
-
 
         num_flops_fwd_total = self.get_num_flops_fwd_total(
             batch_size_per_gpu, seq_len
@@ -2995,23 +3026,45 @@ class LLMAnalysis:
                         " different from estimated_total_training_latency"
                         f" ({estimated_total_training_latency})"
                     )
-            
-            # Calculate endurance
-            total_activation_endurance_pbw_per_epoch_per_GPU = activation_memory_per_gpu * num_iters / 1e3 / 1e3 / 1e3 / 1e3
-            total_activation_endurance_by_4x_2TB_3DWPD_in_total_training_latency = total_activation_endurance_pbw_per_epoch_per_GPU * 1e3 / (total_training_latency / 3600 / 24 * 4 * 2 * 3)
-            # Kioxia FL6 is $12.84/PBW, Solidigm D7 P5620 is $38.53/PBW
-            total_activation_endurance_USD_per_epoch_per_GPU = total_activation_endurance_pbw_per_epoch_per_GPU * 12.84
-            # Assume the electricity cost is $0.15/kWh
-            total_training_electricity_USD_per_epoch_per_GPU = total_training_latency * self.gpu_config.max_tdp_watt / 1000 / 3600 * 0.15
 
+            # Calculate endurance
+            total_activation_endurance_pbw_per_epoch_per_GPU = (
+                activation_memory_per_gpu
+                * num_iters
+                * gradient_accumulation_steps
+                / self.parallelism_config.pp_size
+                / 1e3
+                / 1e3
+                / 1e3
+                / 1e3
+                / 1e3
+            )
+            total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency = (
+                total_activation_endurance_pbw_per_epoch_per_GPU
+                * 1e3
+                / (total_training_latency / 3600 / 24 * 4 * 2 * 3)
+            )
+            # Kioxia FL6 is $12.84/PBW, Solidigm D7 P5620 is $38.53/PBW
+            total_activation_endurance_USD_per_epoch_per_GPU = (
+                total_activation_endurance_pbw_per_epoch_per_GPU * 12.84
+            )
+            # Assume the electricity cost is $0.15/kWh
+            total_training_electricity_USD_per_epoch_per_GPU = (
+                total_training_latency
+                * self.gpu_config.max_tdp_watt
+                / 1000
+                / 3600
+                * 0.15
+            )
 
         else:
             total_training_latency = None
             total_activation_endurance_pbw_per_epoch_per_GPU = None
-            total_activation_endurance_by_4x_2TB_3DWPD_in_total_training_latency = None
+            total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency = (
+                None
+            )
             total_activation_endurance_USD_per_epoch_per_GPU = None
             total_training_electricity_USD_per_epoch_per_GPU = None
-            
 
         gpu_hours = (
             total_training_latency * total_num_gpus / 3600
@@ -3074,7 +3127,7 @@ class LLMAnalysis:
             "latency_per_micro_batch": latency_per_micro_batch,
             "latency_fwd": latency_fwd,
             "total_activation_endurance_pbw_per_epoch_per_GPU": total_activation_endurance_pbw_per_epoch_per_GPU,
-            "total_activation_endurance_by_4x_2TB_3DWPD_in_total_training_latency": total_activation_endurance_by_4x_2TB_3DWPD_in_total_training_latency,
+            "total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency": total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency,
             "total_activation_endurance_USD_per_epoch_per_GPU": total_activation_endurance_USD_per_epoch_per_GPU,
             "total_training_electricity_USD_per_epoch_per_GPU": total_training_electricity_USD_per_epoch_per_GPU,
         }
