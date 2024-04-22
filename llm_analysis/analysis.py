@@ -1918,7 +1918,7 @@ class LLMAnalysis:
     ) -> str:
         log_str = f"\n{title.center(PRINT_LINE_WIDTH, '-')}\n"
         for key, value in summary_dict.items():
-            if "latency" in key:
+            if "latency" in key and not "endurance" in key:
                 log_str += f"{key}: {_latency_to_string(value)}\n"
             elif (
                 "num_tokens" in key
@@ -1932,7 +1932,9 @@ class LLMAnalysis:
             elif "memory" in key and "efficiency" not in key:
                 log_str += f"{key}: {_num_to_string(value)}B\n"
             elif "_pbw_" in key:
-                log_str += f"{key}: {value}PBW\n"
+                log_str += f"{key}: {value} PBW\n"
+            elif "gbs" in key:
+                log_str += f"{key}: {value} GB/s\n"
             else:
                 log_str += f"{key}: {value}\n"
         log_str += f"{'-' * PRINT_LINE_WIDTH}\n"
@@ -1969,7 +1971,6 @@ class LLMAnalysis:
                 + output_file_suffix
                 + "-summary-readable.txt"
             )
-            file_name = output_file_suffix + "-summary-readable.txt"
             with open(os.path.join(output_dir, file_name), "w") as f:
                 f.write(log_str)
             logger.info(
@@ -3044,10 +3045,39 @@ class LLMAnalysis:
                 * 1e3
                 / (total_training_latency / 3600 / 24 * 4 * 2 * 3)
             )
-            # Kioxia FL6 is $12.84/PBW, Solidigm D7 P5620 is $38.53/PBW
+            # Under JESD rating, Kioxia FL6 is $12.84/PBW, Solidigm D7 P5620 is $38.53/PBW.
+            # Assume Kioxia FL6 for endurance USD calculation. Assume WAF of activation offloading is 1.0 and JESD is 2.5
             total_activation_endurance_USD_per_epoch_per_GPU = (
-                total_activation_endurance_pbw_per_epoch_per_GPU * 12.84
+                total_activation_endurance_pbw_per_epoch_per_GPU * 12.84 / 2.5
             )
+            # Assume 12.8TB Solidigm D7 P5620 (i.e., $38.53/PBW) is used for the comparison against linear depreciation calculation.
+            if (
+                total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency
+                < 1
+            ):
+                total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU = (
+                    0
+                )
+            else:
+                total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU = (
+                    2700
+                    * 4
+                    * (
+                        1
+                        - 1
+                        / total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency
+                    )
+                    * total_training_latency
+                    / (
+                        24
+                        * 3600
+                        * 365
+                        * (
+                            5
+                            / total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency
+                        )
+                    )
+                )
             # Assume the electricity cost is $0.15/kWh
             total_training_electricity_USD_per_epoch_per_GPU = (
                 total_training_latency
@@ -3055,6 +3085,14 @@ class LLMAnalysis:
                 / 1000
                 / 3600
                 * 0.15
+            )
+            effective_pcie_write_per_forward_per_micro_batch_per_GPU = (
+                activation_memory_attn_per_gpu
+                / self.parallelism_config.pp_size
+                / 1024
+                / 1024
+                / 1024
+                / latency_fwd
             )
 
         else:
@@ -3065,6 +3103,7 @@ class LLMAnalysis:
             )
             total_activation_endurance_USD_per_epoch_per_GPU = None
             total_training_electricity_USD_per_epoch_per_GPU = None
+            effective_pcie_write_per_forward_per_micro_batch_per_GPU = None
 
         gpu_hours = (
             total_training_latency * total_num_gpus / 3600
@@ -3129,7 +3168,9 @@ class LLMAnalysis:
             "total_activation_endurance_pbw_per_epoch_per_GPU": total_activation_endurance_pbw_per_epoch_per_GPU,
             "total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency": total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency,
             "total_activation_endurance_USD_per_epoch_per_GPU": total_activation_endurance_USD_per_epoch_per_GPU,
+            "total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU": total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU,
             "total_training_electricity_USD_per_epoch_per_GPU": total_training_electricity_USD_per_epoch_per_GPU,
+            "effective_pcie_write_per_forward_per_micro_batch_per_GPU": effective_pcie_write_per_forward_per_micro_batch_per_GPU,
         }
         summary_dict.update(latency_fwd_breakdown)
         summary_dict.update(

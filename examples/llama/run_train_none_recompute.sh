@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-output_dir="outputs_train_none_recompute"
+output_dir="examples/llama/outputs_train_none_recompute"
 global_batch_size=4000000
 gpu_name="a100-sxm-80gb"
 flops_efficiency=0.5

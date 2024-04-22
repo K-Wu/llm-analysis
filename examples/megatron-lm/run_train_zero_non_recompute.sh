@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-output_dir="outputs_train_zero_none_recompute"
+output_dir="examples/megatron-lm/outputs_train_zero_none_recompute"
 
 if [[ ! -e $output_dir ]]; then
     mkdir $output_dir
