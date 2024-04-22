@@ -7,5 +7,6 @@
     "peak_fp16_TFLOPS": 756,
     "peak_i8_TFLOPS": 1513,
     "peak_i4_TFLOPS": 3026,
-    "inter_node_bandwidth_in_GB_per_sec": 400
+    "inter_node_bandwidth_in_GB_per_sec": 400,
+    "max_tdp_watt": 350
 }
