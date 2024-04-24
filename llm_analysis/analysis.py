@@ -2467,7 +2467,7 @@ class LLMAnalysis:
                 )
             logger.info(
                 "batch_size_per_gpu not set, using batch_size_per_gpu"
-                f" {batch_size_per_gpu} (max_batch_size_per_gpu ="
+                f" {batch_size_per_gpu} (max_batch_size_per_gpu(_with_offloading) ="
                 f" {max_batch_size_per_gpu})"
             )
         else:
@@ -2485,7 +2485,7 @@ class LLMAnalysis:
             )
             logger.info(
                 "batch_size_per_gpu not set, using batch_size_per_gpu"
-                f" {batch_size_per_gpu} (max_batch_size_per_gpu ="
+                f" {batch_size_per_gpu} (max_batch_size_per_gpu(_with_offloading) ="
                 f" {max_batch_size_per_gpu})"
             )
 
@@ -3040,10 +3040,11 @@ class LLMAnalysis:
                 / 1e3
                 / 1e3
             )
-            total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency = (
+            total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency = (
                 total_activation_endurance_pbw_per_epoch_per_GPU
                 * 1e3
-                / (total_training_latency / 3600 / 24 * 4 * 2 * 3)
+                / (total_training_latency / 3600 / 24 * 4 * 12.8 * 3)
+                / 2.5
             )
             # Under JESD rating, Kioxia FL6 is $12.84/PBW, Solidigm D7 P5620 is $38.53/PBW.
             # Assume Kioxia FL6 for endurance USD calculation. Assume WAF of activation offloading is 1.0 and JESD is 2.5
@@ -3052,7 +3053,7 @@ class LLMAnalysis:
             )
             # Assume 12.8TB Solidigm D7 P5620 (i.e., $38.53/PBW) is used for the comparison against linear depreciation calculation.
             if (
-                total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency
+                total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency
                 < 1
             ):
                 total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU = (
@@ -3065,7 +3066,7 @@ class LLMAnalysis:
                     * (
                         1
                         - 1
-                        / total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency
+                        / total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency
                     )
                     * total_training_latency
                     / (
@@ -3074,7 +3075,7 @@ class LLMAnalysis:
                         * 365
                         * (
                             5
-                            / total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency
+                            / total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency
                         )
                     )
                 )
@@ -3098,7 +3099,7 @@ class LLMAnalysis:
         else:
             total_training_latency = None
             total_activation_endurance_pbw_per_epoch_per_GPU = None
-            total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency = (
+            total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency = (
                 None
             )
             total_activation_endurance_USD_per_epoch_per_GPU = None
@@ -3114,6 +3115,7 @@ class LLMAnalysis:
         summary_dict = {
             "batch_size_per_gpu": batch_size_per_gpu,
             "max_batch_size_per_gpu": max_batch_size_per_gpu,
+            "max_batch_size_per_gpu_with_offloading": max_batch_size_per_gpu_with_offloading,
             "gradient_accumulation_steps": gradient_accumulation_steps,
             "global_batch_size": global_batch_size,
             "dp_size": self.parallelism_config.dp_size,
@@ -3166,7 +3168,7 @@ class LLMAnalysis:
             "latency_per_micro_batch": latency_per_micro_batch,
             "latency_fwd": latency_fwd,
             "total_activation_endurance_pbw_per_epoch_per_GPU": total_activation_endurance_pbw_per_epoch_per_GPU,
-            "total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency": total_activation_endurance_by_4x_2TB_3DWPD_per_GPU_in_total_training_latency,
+            "total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency": total_activation_endurance_by_4x_12_8TB_3DWPD_per_GPU_in_total_training_latency,
             "total_activation_endurance_USD_per_epoch_per_GPU": total_activation_endurance_USD_per_epoch_per_GPU,
             "total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU": total_activation_endurance_overcost_USD_against_linear_depreciation_per_epoch_per_GPU,
             "total_training_electricity_USD_per_epoch_per_GPU": total_training_electricity_USD_per_epoch_per_GPU,
