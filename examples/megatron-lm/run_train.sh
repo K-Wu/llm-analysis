@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-output_dir="outputs_train"
+output_dir="examples/megatron-lm/outputs_train"
 
 if [[ ! -e $output_dir ]]; then
     mkdir $output_dir
