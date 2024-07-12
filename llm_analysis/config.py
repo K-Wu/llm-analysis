@@ -21,11 +21,8 @@ from pathlib import Path
 
 import fire
 
-from llm_analysis.constant import (
-    DTYPE_CONFIG_DIR_NAME,
-    GPU_CONFIG_DIR_NAME,
-    MODEL_CONFIG_DIR_NAME,
-)
+from llm_analysis.constant import (DTYPE_CONFIG_DIR_NAME, GPU_CONFIG_DIR_NAME,
+                                   MODEL_CONFIG_DIR_NAME)
 from llm_analysis.logger import logger
 
 try:
@@ -133,8 +130,9 @@ class ParallelismConfig:
         1  # pipeline parallelism size, Megatron-LM pipeline parallelism implementation
     )
     dp_size: int = (
-        1  # data parallelism size, DeepSpeed Zero parallelism implementation
+        1  # sharded data parallelism size, PyTorch FSDP or DeepSpeed Zero parallelism implementation
     )
+    rdp_size: int = 1  # replicated data parallelism size, PyTorch HSDP implementation
     ep_size: int = 1  # expert parallelism size
     sp_size: int = (
         None  # sequence parallelism size, Megatron-LM sequence parallelism implementation
@@ -386,10 +384,10 @@ def get_model_config_by_name(name_or_path: str) -> ModelConfig:
                     model_configs[config.name] = config
             return config
         except Exception as e:
-            raise ValueError(f"unknown gpu config name: {e}")
+            raise ValueError(f"unknown model config name: {e}")
     model_config = get_model_config_from_hf(name_or_path)
     if model_config is None:
-        raise (
+        raise ValueError(
             f"unknown model config name: {name_or_path}, and none is found on HuggingFace Hub"
         )
     return model_config
