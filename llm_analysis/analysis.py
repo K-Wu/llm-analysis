@@ -2486,6 +2486,9 @@ class LLMAnalysis:
                 gradient_accumulation_steps = 1
             else:
                 prod = global_batch_size // dp_size
+                logger.warning(
+                    f"max_batch_size_per_gpu {max_batch_size_per_gpu} prod {prod}"
+                )
                 batch_size_per_gpu = next(
                     d
                     for d in range(
@@ -2551,6 +2554,7 @@ class LLMAnalysis:
         output_dir: str = None,
         output_file_prefix: str = "",
         output_file_suffix: str = "",
+        ignore_memory_limit: bool = False,
     ) -> dict:
         """Training analysis given the configs and inputs.
 
@@ -2836,8 +2840,19 @@ class LLMAnalysis:
             max_batch_size_per_gpu -= 1
 
         logger.info(
-            f"max_batch_size_per_gpu: {max_batch_size_per_gpu}, estimated_prefetch_memory_per_gpu: {_num_to_string(estimated_prefetch_memory_per_gpu)}B, loss_bwd_memory: {_num_to_string(self.get_loss_bwd_memory(max_batch_size_per_gpu, seq_len))}B"
+            f"max_batch_size_per_gpu: {max_batch_size_per_gpu}, estimated_prefetch_memory_per_gpu: {_num_to_string(estimated_prefetch_memory_per_gpu)}B, loss_bwd_memory: {_num_to_string(self.get_loss_bwd_memory(max_batch_size_per_gpu, seq_len))}B."
         )
+
+        logger.info(
+            f"Before calling config_batch_size_and_gradient_accumulation_steps, batch_size_per_gpu {batch_size_per_gpu}, gradient_accumulation_steps {gradient_accumulation_steps}, global_batch_size {global_batch_size}"
+        )
+
+        if ignore_memory_limit:
+            logger.warning(
+                "ignore_memory_limit is set, setting max_batch_size_per_gpu to global_batch_size"
+            )
+            assert global_batch_size is not None
+            max_batch_size_per_gpu = global_batch_size
 
         (
             batch_size_per_gpu,
@@ -3501,6 +3516,7 @@ def train(
     output_dir: str = None,
     output_file_prefix: str = "",
     output_file_suffix: str = "",
+    ignore_memory_limit: bool = False,
 ) -> dict:
     """Entry point function of training analysis for the command line interface. This
     uses pre-defined name-to-configuration mapping and common arguments to construct
@@ -3633,6 +3649,7 @@ def train(
         output_dir=output_dir,
         output_file_prefix=output_file_prefix,
         output_file_suffix=output_file_suffix,
+        ignore_memory_limit=ignore_memory_limit,
     )
 
     return summary_dict
