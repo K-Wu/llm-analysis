@@ -1,0 +1,10 @@
+{
+  "name": "bert3",
+  "num_layers": 2,
+  "n_head": 128,
+  "hidden_dim": 16384,
+  "vocab_size": 32000,
+  "max_seq_len": 1024,
+  "ffn_embed_dim": 65536,
+  "model_type": "bert"
+}
