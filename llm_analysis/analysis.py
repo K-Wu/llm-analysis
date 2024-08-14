@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+\
 import json
 import logging
 import os
@@ -3228,12 +3228,14 @@ class LLMAnalysis:
                 * 0.15
             )
             effective_pcie_write_per_forward_per_micro_batch_per_GPU = (
-                activation_memory_attn_per_gpu
+                activation_memory_per_gpu
                 / self.parallelism_config.pp_size
                 / 1024
                 / 1024
                 / 1024
                 / latency_fwd
+                /3 # Assuming writing until half of the (forward + backward)
+                *2
             )
 
         else:
